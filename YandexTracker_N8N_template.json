@@ -1,0 +1,458 @@
+{
+  "name": "YandexTracker",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "b8020111-57b6-4ef8-9111-9d95af62",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        0
+      ],
+      "id": "091521f9-5453-4733-960b-e75f8838fc31",
+      "name": "Webhook",
+      "webhookId": "b8020111-57b6-4ef8-9111-9d95af62"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Ответь на следующий тикет: \n```\nticket id: {{ $json.key }}\n{{ $json.summary }}\n{{ $json.description }}\n{{ $json.emailFrom }}\n```\n\nВозможные переходы по статусам(`transitions`):\n```\n{{ JSON.stringify($json.transitions) }}\n```\n\nСначала поразмышляй и обоснуй свой ответ в 3-4 предложениях.\nПосле выполнения всех необходимых действий сделай резюме проделанной работы.",
+        "options": {
+          "systemMessage": "СИСТЕМНЫЙ ПРОМПТ",
+          "maxIterations": 10,
+          "returnIntermediateSteps": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        760,
+        0
+      ],
+      "id": "a81ebad5-ab7c-4961-a5a8-d223441ceee3",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        220
+      ],
+      "id": "08b50c6f-bf16-4902-bbd9-8141cde62803",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "Yx8HY0FlstV9Ps7c",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Перевести в новый статус тикет",
+        "method": "POST",
+        "url": "=https://api.tracker.yandex.net/v2/issues/{{ $('Webhook').item.json.body.issue.key }}/transitions/{transition_id}/_execute",
+        "sendQuery": true,
+        "parametersQuery": {
+          "values": [
+            {
+              "name": "transition_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "=Bearer {{ $('AuthYandexTracker').item.json.iamToken }}"
+            },
+            {
+              "name": "X-Org-ID",
+              "valueProvider": "fieldValue",
+              "value": "256073"
+            }
+          ]
+        },
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "transition_id",
+              "description": "id нового статуса(перехода)",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        480
+      ],
+      "id": "019c00c5-d3ec-45c7-bc8c-09984c67df04",
+      "name": "UpdateTicketStatus"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://iam.api.cloud.yandex.net/iam/v1/tokens",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "yandexPassportOauthToken",
+              "value": "---OAUTH TOKEN---"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        40,
+        0
+      ],
+      "id": "b88cf305-e5a3-47cf-814b-a8f94be1e73c",
+      "name": "AuthYandexTracker"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.tracker.yandex.net/v2/issues/{{ $('Webhook').item.json.body.issue.key }}?expand=transitions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.iamToken }}"
+            },
+            {
+              "name": "X-Org-ID",
+              "value": "---ORG ID---"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ],
+      "id": "721646aa-bebf-4135-a80a-a4bc1096a186",
+      "name": "TicketInfo"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Загрузить страницу с сайта",
+        "url": "={url}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "url",
+              "description": "Url для загрузки",
+              "type": "string"
+            }
+          ]
+        },
+        "optimizeResponse": true,
+        "responseType": "text",
+        "truncateResponse": true,
+        "maxLength": 5000
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        700,
+        320
+      ],
+      "id": "7d3aafc0-98b4-45a7-a061-9d300204d7b4",
+      "name": "GetPage"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.tracker.yandex.net/v2/issues/{{ $('Webhook').item.json.body.issue.key }}/comments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('AuthYandexTracker').item.json.iamToken }}"
+            },
+            {
+              "name": "X-Org-ID",
+              "value": "---ORG ID---"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        0
+      ],
+      "id": "2b7a101e-07e0-4cba-bf24-507659a38a72",
+      "name": "AddResultComment"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Добавить теги в тикет",
+        "method": "PATCH",
+        "url": "=https://api.tracker.yandex.net/v2/issues/{{ $('Webhook').item.json.body.issue.key }}",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "=Bearer {{ $('AuthYandexTracker').item.json.iamToken }}"
+            },
+            {
+              "name": "X-Org-ID",
+              "valueProvider": "fieldValue",
+              "value": "---ORG ID---"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n            \"tags\": {\n                \"add\": {tags_to_add},\n                \"remove\": []\n            }\n        }",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "tags_to_add",
+              "description": "массив тэгов которые необходимо добавить в тикет",
+              "type": "json"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        320
+      ],
+      "id": "78d2c457-21f2-43a9-ae20-c164b086581d",
+      "name": "AddTagsToTicket"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Ответить пользователю",
+        "method": "POST",
+        "url": "=https://api.tracker.yandex.net/v2/issues/{{ $('Webhook').item.json.body.issue.key }}/comments",
+        "sendHeaders": true,
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "=Bearer {{ $('AuthYandexTracker').item.json.iamToken }}"
+            },
+            {
+              "name": "X-Org-ID",
+              "valueProvider": "fieldValue",
+              "value": "256073"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"text\": \"{text}\",\n    \"email\": {\n        \"subject\": \"тема\",\n        \"text\": \"{text}\",\n        \"info\": {\n            \"from\": \"Служба поддержки \",\n            \"to\": [\n                \"{to_email}\"\n            ]\n        }\n    }\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "to_email",
+              "description": "Адрес электронной почты пользователя",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "description": "Текст сообщения в одну строку. No special characters!",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        480
+      ],
+      "id": "8c6066f0-7b90-4d1e-a170-0b510918fd36",
+      "name": "ReplyToTicket"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AuthYandexTracker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpdateTicketStatus": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AuthYandexTracker": {
+      "main": [
+        [
+          {
+            "node": "TicketInfo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TicketInfo": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetPage": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "AddResultComment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AddTagsToTicket": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RemoveSudrf": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RemoveEntrepreneur": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ReplyToTicket": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c93d373e-0082-4b6f-ac2a-51fda950640e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
+  },
+  "id": "hwcDOWyCceDck3nh",
+  "tags": []
+}
